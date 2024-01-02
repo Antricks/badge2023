@@ -1,0 +1,10 @@
+60:00:06:a0:00:c9:95:00:00
+
+CORE_RESET_NTF
+- Reset Trigger:    0xa0 (An assert has triggered PN7150 reset/reboot)
+- Config Status:    0x00 (config not changed)
+- dwAssertionProgramCounter: c9:95:00:00
+
+---
+
+https://community.nxp.com/t5/NFC/How-to-solve-NFC-PN7150-Internal-Assert-issue/m-p/1266795
