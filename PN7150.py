@@ -155,8 +155,7 @@ class PN7150:
         assert self._i2c.try_lock()
         self._write(b"\x21\x00\x04\x01\x04\x02\x02") # RF_DISCOVER_MAP_CMD according to chapter 7 in user manual
         
-        core_config = []
-        core_config += [b"\x30\x01\x01"] # LA_BIT_FRAME_SDD - 4 Byte ID1, SDD set to 1 
+        core_config = [b"\x30\x01\x01"] # LA_BIT_FRAME_SDD - 4 Byte ID1, SDD set to 1 
         core_config += [b"\x31\x01\x0c"] # LA_PLATFORM_CONFIG - RFU part set to 0, rest set to 1100b 
         core_config += [b"\x32\x01\x60"] # LA_SEL_INFO = ??
         core_config += [b"\x33\x04\x37\xc3\x13\x37"] # LA_NFCID1 = 0x37c31337
@@ -167,8 +166,7 @@ class PN7150:
         self._write(b"\x20\x02"+struct.pack("B", len(core_config_joined)+1)+struct.pack("B", len(core_config))+core_config_joined) # CORE_SET_CONFIG_CMD
 
         # TODO 21:01 RF_SET_LISTEN_MODE_ROUTING_CMD
-        routing_entries = []
-        routing_entries += [b"\x01\x03\x00\x3f\x04"] # Proto: ISO-DEP
+        routing_entries = [b"\x01\x03\x00\x3f\x04"] # Proto: ISO-DEP
         
         routing_entries_joined = b"".join(routing_entries)
         # RF_SET_LISTEN_MODE_ROUTING_CMD (last msg)
