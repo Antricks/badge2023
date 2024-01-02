@@ -168,9 +168,7 @@ class PN7150:
 
         # TODO 21:01 RF_SET_LISTEN_MODE_ROUTING_CMD
         routing_entries = []
-        # TODO fix routing_entries += [b"\x02\x06\x00\x3f\x37\xc3\x13\x37"] # Application ID: 0x37c31337
         routing_entries += [b"\x01\x03\x00\x3f\x04"] # Proto: ISO-DEP
-        routing_entries += [b"\x00\x03\x00\x3f\x00"] # Techno: NFC-A
         
         routing_entries_joined = b"".join(routing_entries)
         # RF_SET_LISTEN_MODE_ROUTING_CMD (last msg)
