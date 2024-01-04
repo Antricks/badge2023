@@ -15,7 +15,7 @@ nfc = PN7150(i2c, board.IRQ, board.VEN, debug=True)
 assert nfc.connect()
 print("Connected.")
 
-assert nfc.emulation_setup_nfca()
+assert nfc.emulation_setup_nfcb()
 print("Set up as 37c3 test card emulator")
 
 while True:

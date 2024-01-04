@@ -35,7 +35,7 @@ def status(nr: int):
 def dump_package(buf: bytes, end: int, prefix: str = ""):
     fst, snd = buf[0], buf[1]
     if fst & 0xe0 == 0:
-        print("{}Data packet to/from {} length {}".format(prefix, buf[0] & 0x0f, buf[2]))
+        print("{}Data packet to/from {} length {} - {}".format(prefix, buf[0] & 0x0f, buf[2], str(buf[:end])))
     elif fst == 0x20 and snd == 0x00:
         print("{}CORE_RESET_CMD({}) Reset Configuration: {}".format(prefix, end, buf[3]))
     elif fst == 0x40 and snd == 0x00:
@@ -153,50 +153,73 @@ class PN7150:
 
     def emulation_setup_nfca(self):
         assert self._i2c.try_lock()
+       
+        #RF_DISCOVER_MAP_CMD 4 bytes payload, 1 mapping, 0x04: PROTOCOL_ISO_DEP, 0b10: map RF interface in listen mode, 0x02: ISO-DEP RF Interface
         self._write(b"\x21\x00\x04\x01\x04\x02\x02") # RF_DISCOVER_MAP_CMD according to chapter 7 in user manual
-        
-        core_config = [b"\x30\x01\x01"] # LA_BIT_FRAME_SDD - 4 Byte ID1, SDD set to 1 
+        sleep(.05)
+        self._dropInput() # TODO handle response
+
+        core_config = [b"\x30\x01\x00"] # LA_BIT_FRAME_SDD - 4 Byte ID1, 00000b 
         core_config += [b"\x31\x01\x0c"] # LA_PLATFORM_CONFIG - RFU part set to 0, rest set to 1100b 
         core_config += [b"\x32\x01\x60"] # LA_SEL_INFO = ??
         core_config += [b"\x33\x04\x37\xc3\x13\x37"] # LA_NFCID1 = 0x37c31337
-        core_config += [b"\x59\x01\x00"] # LI_A_HIST_BY = 0 (not using A4 afaik) 
-        core_config += [b"\x5b\x01\x06"] # LI_A_BIT_RATE = maximum available bitrate 
+        core_config += [b"\x59\x01\x00"] # LI_A_HIST_BY = 0
+        core_config += [b"\x5b\x01\x01"] # LI_A_BIT_RATE = maximum available bitrate 
 
         core_config_joined = b"".join(core_config)
         self._write(b"\x20\x02"+struct.pack("B", len(core_config_joined)+1)+struct.pack("B", len(core_config))+core_config_joined) # CORE_SET_CONFIG_CMD
-
+        sleep(.05)
+        self._dropInput() # TODO handle response
+        
         # TODO 21:01 RF_SET_LISTEN_MODE_ROUTING_CMD
-        routing_entries = [b"\x01\x03\x00\x3f\x04"] # Proto: ISO-DEP
+        routing_entries = [b"\x02\x07\x00\x3f\x04\x37\xc3\x13\x37"] # Application ID: 0x37c31337
+        routing_entries += [b"\x01\x03\x00\x3f\x04"] # Proto: ISO-DEP
+        routing_entries += [b"\x00\x03\x00\x3f\x00"] # Techno: NFC-A 
         
         routing_entries_joined = b"".join(routing_entries)
         # RF_SET_LISTEN_MODE_ROUTING_CMD (last msg)
         self._write(b"\x21\x01"+struct.pack("B", 2+len(routing_entries_joined))+b"\x00"+struct.pack("B", len(routing_entries))+routing_entries_joined)
+        sleep(.05)
+        self._dropInput() # TODO handle response
 
         self._write(b"\x21\x03\x03\x01\x80\x01") # RF_DISCOVER_CMD in A mode
-
-        # TODO check statuses of responses for each command 
+        sleep(.05)
+        self._dropInput() # TODO handle response
 
         self._i2c.unlock()
         return True
 
     def emulation_setup_nfcb(self):
         assert self._i2c.try_lock()
-        self._write(b"\x21\x00\x04\x01\x04\x02\x02") # RF_DISCOVER_MAP_CMD according to chapter 7 in user manual
         
-        core_config = []
-        core_config += [b"\x38\x00"] # TODO LB_SENSB_INFO
+        #RF_DISCOVER_MAP_CMD 4 bytes, 1 mapping, 0x04: PROTOCOL_ISO_DEP, 0b10: map RF interface in listen mode, 0x02: ISO-DEP RF Interface
+        self._write(b"\x21\x00\x04\x01\x04\x02\x02") # RF_DISCOVER_MAP_CMD according to chapter 7 in user manual
+        sleep(.05)
+        self._dropInput() # TODO handle response
+        
+        core_config = [b"\x38\x01\x00"] # LB_SENSB_INFO - no support for both
         core_config += [b"\x39\x04\xbb\xbb\x37\xc3"] # LB_NFCID0
-        core_config += [b"\x3a\x04"] # LB_APPLICATION_DATA
-        core_config += [b"\x3b\x00"] # TODO LB_SFGI
-        core_config += [b"\x3c\x00"] # TODO LB_FWI_ADC_FO 
-        core_config += [b"\x3e\x01\x00"] # LB_BIT_RATE
+        core_config += [b"\x3a\x04\x00\x00\x00\x00"] # LB_APPLICATION_DATA
+        core_config += [b"\x3b\x01\x00"] # LB_SFGI - default value 0
+        core_config += [b"\x3c\x01\x05"] # LB_FWI_ADC_FO - default value 0x05 
+        core_config += [b"\x3e\x01\x06"] # LB_BIT_RATE
         core_config += [b"\x5a\x00"] # LI_B_H_INFO_RESP
 
         core_config_joined = b"".join(core_config)
         self._write(b"\x20\x02"+struct.pack("B", len(core_config_joined)+1)+struct.pack("B", len(core_config))+core_config_joined) # CORE_SET_CONFIG_CMD
+        sleep(.05)
+        self._dropInput() # TODO handle response
+
+        routing_entries = [b"\x01\x03\x00\x3f\x04"] # Proto: ISO-DEP 
+        routing_entries_joined = b"".join(routing_entries)
+        # RF_SET_LISTEN_MODE_ROUTING_CMD (last msg)
+        self._write(b"\x21\x01"+struct.pack("B", 2+len(routing_entries_joined))+b"\x00"+struct.pack("B", len(routing_entries))+routing_entries_joined)
+        sleep(.05)
+        self._dropInput() # TODO handle response
 
         self._write(b"\x21\x03\x03\x01\x81\x01") # RF_DISCOVER_CMD in B mode
-        #self.write(b"\x21\x03\x01\x00")
+        sleep(.05)
+        self._dropInput() # TODO handle response
 
         self._i2c.unlock()
         return True
@@ -226,10 +249,13 @@ class PN7150:
                 return 0
         return self.__read()
 
-    def dropInput(self):
-        assert self._i2c.try_lock()
+    def _dropInput(self):
         while self._irq.value == 1:
             self.__read()
+
+    def dropInput(self):
+        assert self._i2c.try_lock()
+        self._dropInput()
         self._i2c.unlock()
     
     def _write(self, cmd: bytes, end: int = 0):
